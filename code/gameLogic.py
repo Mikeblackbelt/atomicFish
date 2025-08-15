@@ -5,13 +5,13 @@ def atomicCapture(board: chess.Board, move: chess.Move) -> chess.Board:
     Explodes a capture move on the chess board according to atomic chess rules.
     Removes the captured piece and adjacent non-pawn, non-king pieces.
     """
-    print([m.uci() for m in board.pseudo_legal_moves])
+    #print([m.uci() for m in board.pseudo_legal_moves])
     if not any(m.uci() == move.uci() for m in board.pseudo_legal_moves):
         raise ValueError("Move is not pseudo-legal")
 
     if not board.is_capture(move):
         board.push(move)
-        return board
+        return board, None
 
     to_sq = move.to_square
 
@@ -23,12 +23,11 @@ def atomicCapture(board: chess.Board, move: chess.Move) -> chess.Board:
         if piece and piece.piece_type not in [chess.PAWN, chess.KING]:
             board.remove_piece_at(adj_sq)
         elif piece and piece.piece_type == chess.KING:
-            board.empty()  
-            return (board, not piece.color)
+            return board, not piece.color
     
     board.remove_piece_at(to_sq)  # Remove the piece that was captured
 
-    return board
+    return board, None
 
 
 def adjacent_squares(square):
@@ -45,6 +44,9 @@ def adjacent_squares(square):
                 adj.append(chess.square(f, r))
     return adj
 
+def gameloop(board, move):
+    board = atomicCapture(board, move)
+    
 if __name__ == "__main__":
     fen = "rnbqkbnr/pppppppp/8/2rpp3/8/8/PPP1PPPP/RNBQKBNR w KQkq - 0 1"
     board = chess.Board(fen)
