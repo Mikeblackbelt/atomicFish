@@ -71,7 +71,6 @@ class AtomicChessGUI:
                     self.root.quit()
                     return
                 self.canvas.update()
-                time.sleep(1)
                 # AI turn
                 ai_move = engine.find_BestMove(4, self.board)
                 if ai_move is None:
