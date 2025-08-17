@@ -1,22 +1,29 @@
+from unittest import case
 import chess
 import gameLogic
 import random
+import time 
 
-def evaluatePos(board: chess.Board):
-    piece_values = {
+piece_values = {
         chess.PAWN: 1,
-        chess.KNIGHT: 3,
+        chess.KNIGHT: 3.5,
         chess.BISHOP: 3,
         chess.ROOK: 5,
         chess.QUEEN: 9,
         chess.KING: 10000
-    }
+}
+
+testMode = 'evaluate' # 'play' or 'evaluate'
+
+def evaluatePos(board: chess.Board):
     score = 0
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece:
-            value = piece_values[piece.piece_type]
-            score += value if piece.color == chess.WHITE else -value
+    score += board.pawns & board.occupied_co[chess.WHITE].bit_count() * piece_values[chess.PAWN] - board.pawns & board.occupied_co[chess.BLACK].bit_count() * piece_values[chess.PAWN]
+    score += (board.knights & board.occupied_co[chess.WHITE]).bit_count() * piece_values[chess.KNIGHT] - (board.knights & board.occupied_co[chess.BLACK]).bit_count() * piece_values[chess.KNIGHT]
+    score += (board.bishops & board.occupied_co[chess.WHITE]).bit_count() * piece_values[chess.BISHOP] - (board.bishops & board.occupied_co[chess.BLACK]).bit_count() * piece_values[chess.BISHOP]
+    score += (board.rooks & board.occupied_co[chess.WHITE]).bit_count() * piece_values[chess.ROOK] - (board.rooks & board.occupied_co[chess.BLACK]).bit_count() * piece_values[chess.ROOK]
+    score += (board.queens & board.occupied_co[chess.WHITE]).bit_count() * piece_values[chess.QUEEN] - (board.queens & board.occupied_co[chess.BLACK]).bit_count() * piece_values[chess.QUEEN]
+    score += (board.kings & board.occupied_co[chess.WHITE]).bit_count() * piece_values[chess.KING] - (board.kings & board.occupied_co[chess.BLACK]).bit_count() * piece_values[chess.KING]
+
     return score
 
 def minimax(board: chess.Board, depth: int, maximizing: bool, alpha=float('-inf'), beta=float('inf'), moveCounter=None):
@@ -88,34 +95,49 @@ def find_BestMove(depth: int, board: chess.Board):
     return random.choice(best_moves) if best_moves else None
 
 if __name__ == "__main__":
-    board = chess.Board()
-    while True:
-        print(board)
-        try:
-            player_move = chess.Move.from_uci(input("Your move! "))
-            board, winner = gameLogic.atomicCapture(board, player_move)
-        except:
-            print("Illegal move. Try again.")
-            continue
+    match testMode:
+        case 'evaluate':
+             board = chess.Board()
+             start_time = time.time()
+             for i in range(10**5):    
+                 evaluatePos(board)
 
-        print(board)
-        if winner is not None:
-            print("Game over! Winner:", "White" if winner else "Black")
-            break
-        if board.is_game_over():
-            print("Game over:", board.result())
-            break
+             print(f"Evaluation time per position: {(time.time() - start_time)/10**5 * 10**6 } microseconds (total {time.time() - start_time} seconds for 100k positions)")
 
-        print("AI is thinking...")
-        ai_move = find_BestMove(4, board)
-        if ai_move is None:
-            print("No valid AI move! Game over.")
-            break
-        board, winner = gameLogic.atomicCapture(board, ai_move)
-        print(f"AI plays: {ai_move.uci()}")
-        if winner is not None:
-            print("Game over! Winner:", "White" if winner else "Black")
-            break
-        if board.is_game_over():
-            print("Game over:", board.result())
-            break
+             """start_time = time.time()
+             for i in range(10**5):
+                 evaluatePos(board)
+             print(f"Evaluation time per position: {(time.time() - start_time)/10**5 * 10**6 } microseconds (total {time.time() - start_time} seconds for 100k positions)")"""
+
+        case 'play':    
+                board = chess.Board()
+                while True:
+                    print(board)
+                    try:
+                        player_move = chess.Move.from_uci(input("Your move! "))
+                        board, winner = gameLogic.atomicCapture(board, player_move)
+                    except:
+                        print("Illegal move. Try again.")
+                        continue
+
+                    print(board)
+                    if winner is not None:
+                        print("Game over! Winner:", "White" if winner else "Black")
+                        break
+                    if board.is_game_over():
+                        print("Game over:", board.result())
+                        break
+
+                    print("AI is thinking...")
+                    ai_move = find_BestMove(4, board)
+                    if ai_move is None:
+                        print("No valid AI move! Game over.")
+                        break
+                    board, winner = gameLogic.atomicCapture(board, ai_move)
+                    print(f"AI plays: {ai_move.uci()}")
+                    if winner is not None:
+                        print("Game over! Winner:", "White" if winner else "Black")
+                        break
+                    if board.is_game_over():
+                        print("Game over:", board.result())
+                        break
