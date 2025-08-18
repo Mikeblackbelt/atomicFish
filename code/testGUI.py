@@ -1,59 +1,60 @@
-#thank you chatgpt i did not write this code
-
 import tkinter as tk
 from tkinter import messagebox
 import chess
-import engine  # your AI logic with find_BestMove
 import gameLogic
-import time
+import engine  # your engine.py module
 
-BOARD_SIZE = 480
-SQUARE_SIZE = BOARD_SIZE // 8
+BOARD_SIZE = 8
+SQUARE_SIZE = 60
 
-# Colors
-LIGHT_COLOR = "#F0D9B5"
-DARK_COLOR = "#B58863"
-
-# Simple piece symbols for display
-PIECE_SYMBOLS = {
-    "P": "♙", "N": "♘", "B": "♗", "R": "♖", "Q": "♕", "K": "♔",
-    "p": "♟", "n": "♞", "b": "♝", "r": "♜", "q": "♛", "k": "♚"
+# Unicode symbols for chess pieces
+UNICODE_PIECES = {
+    chess.PAWN:   {'w': '♙', 'b': '♟'},
+    chess.KNIGHT: {'w': '♘', 'b': '♞'},
+    chess.BISHOP: {'w': '♗', 'b': '♝'},
+    chess.ROOK:   {'w': '♖', 'b': '♜'},
+    chess.QUEEN:  {'w': '♕', 'b': '♛'},
+    chess.KING:   {'w': '♔', 'b': '♚'},
 }
 
 class AtomicChessGUI:
-    def __init__(self, root):
-        self.root = root
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Atomic Chess GUI")
         self.board = chess.Board()
         self.selected_square = None
 
-        self.canvas = tk.Canvas(root, width=BOARD_SIZE, height=BOARD_SIZE)
+        self.canvas = tk.Canvas(self.root, width=BOARD_SIZE*SQUARE_SIZE, height=BOARD_SIZE*SQUARE_SIZE)
         self.canvas.pack()
-        self.canvas.bind("<Button-1>", self.click_square)
+        self.canvas.bind("<Button-1>", self.on_click)
 
         self.draw_board()
+        self.root.mainloop()
 
     def draw_board(self):
         self.canvas.delete("all")
-        for r in range(8):
-            for c in range(8):
-                color = LIGHT_COLOR if (r + c) % 2 == 0 else DARK_COLOR
-                x1, y1 = c * SQUARE_SIZE, r * SQUARE_SIZE
-                x2, y2 = x1 + SQUARE_SIZE, y1 + SQUARE_SIZE
+        colors = ["#f0d9b5", "#b58863"]
+        for rank in range(BOARD_SIZE):
+            for file in range(BOARD_SIZE):
+                x1 = file * SQUARE_SIZE
+                y1 = rank * SQUARE_SIZE
+                x2 = x1 + SQUARE_SIZE
+                y2 = y1 + SQUARE_SIZE
+                color = colors[(rank + file) % 2]
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=color)
 
-                square = chess.square(c, 7 - r)  # chess.SQUARES is 0-63, rank 7 at top
-                piece = self.board.piece_at(square)
+                piece = self.board.piece_at(chess.square(file, 7 - rank))
                 if piece:
-                    symbol = PIECE_SYMBOLS[piece.symbol()]
+                    symbol = UNICODE_PIECES[piece.piece_type]['w' if piece.color else 'b']
                     self.canvas.create_text(
                         x1 + SQUARE_SIZE/2, y1 + SQUARE_SIZE/2,
                         text=symbol, font=("Arial", 32)
                     )
 
-    def click_square(self, event):
-        col = event.x // SQUARE_SIZE
-        row = 7 - (event.y // SQUARE_SIZE)
-        square = chess.square(col, row)
+    def on_click(self, event):
+        file = event.x // SQUARE_SIZE
+        rank = 7 - (event.y // SQUARE_SIZE)
+        square = chess.square(file, rank)
 
         if self.selected_square is None:
             piece = self.board.piece_at(square)
@@ -62,32 +63,45 @@ class AtomicChessGUI:
         else:
             move = chess.Move(self.selected_square, square)
             if move in self.board.pseudo_legal_moves:
-                self.board, winner = gameLogic.atomicCapture(self.board, move)
-                self.draw_board()
+                try:
+                    self.board, winner = gameLogic.atomicCapture(self.board.copy(), move)
+                except ValueError:
+                    messagebox.showerror("Invalid Move", "Move invalid after atomic explosion!")
+                    self.selected_square = None
+                    return
+
                 self.selected_square = None
+                self.draw_board()
 
                 if winner is not None:
                     messagebox.showinfo("Game Over", f"Winner: {'White' if winner else 'Black'}")
-                    self.root.quit()
                     return
-                self.canvas.update()
-                # AI turn
-                ai_move = engine.find_BestMove(4, self.board)
-                if ai_move is None:
-                    messagebox.showinfo("Game Over", "AI Resigns!" )
-                    self.root.quit()
+                if self.board.is_game_over():
+                    messagebox.showinfo("Game Over", f"Result: {self.board.result()}")
                     return
-                self.board, winner = gameLogic.atomicCapture(self.board, ai_move)
-                self.draw_board()
-                if winner is not None:
-                    messagebox.showinfo("Game Over", f"Winner: {'White' if winner else 'Black'}")
-                    self.root.quit()
+
+                self.root.update()
+                self.root.after(100, self.ai_move)
             else:
-                # Invalid move, deselect
                 self.selected_square = None
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Atomic Chess GUI")
-    gui = AtomicChessGUI(root)
-    root.mainloop()
+    def ai_move(self):
+        move = engine.find_best_move(self.board, depth=4)
+        if move is None:
+            messagebox.showinfo("Game Over", "No valid AI move!")
+            return
+        try:
+            self.board, winner = gameLogic.atomicCapture(self.board.copy(), move)
+        except ValueError:
+            messagebox.showerror("Invalid AI Move", "AI tried illegal move!")
+            return
+
+        self.draw_board()
+        if winner is not None:
+            messagebox.showinfo("Game Over", f"Winner: {'White' if winner else 'Black'}")
+            return
+        if self.board.is_game_over():
+            messagebox.showinfo("Game Over", f"Result: {self.board.result()}")
+            return
+
+AtomicChessGUI()
